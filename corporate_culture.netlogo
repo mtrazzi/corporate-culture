@@ -25,7 +25,6 @@ to go
   if ticks >= 500 [ stop ]  ;; stop after 100 ticks
   move-agents
   game
-  adaptation
   tick                    ;; increase the tick counter by 1 each time through
 end
 
@@ -39,9 +38,9 @@ end
 
 to setup-turtles
   create-turtles number    ;; uses the value of the number slider to create turtles
+  init-type
   init-pos
   init-efforts
-  init-type
   init-col
   rand-dir
   ;; cheating
@@ -68,7 +67,7 @@ to init-efforts
   ask turtles [
     set effort (random-float 2.5) ;; random for all turtles (at first)
     if _type = 0 [set effort 0.0001] ;; null effort agent
-    if _type = 5 or _type = 7 [set effort high-effort] ;; high effort agent and winner imitator start with high effort
+    if (_type = 5 or _type = 7) [set effort high-effort] ;; high effort agent and winner imitator start with high effort
   ]
 end
 
@@ -106,8 +105,10 @@ to-report _profit [e_i e_j]
 end
 
 to game
-  print("#####GAME####")
   ask turtles [
+    show self
+    show _type
+    show effort
     let agent_1 self
     let heading_1 heading
     let effort_1 effort
@@ -116,20 +117,19 @@ to game
         let heading_2 heading
         let agent_2 self
         let effort_2 effort
-        ;; if agents are facing each other
         if (heading_1 != heading_2) and ((heading_1 + heading_2) mod 180 = 0) [
-          print("facing each other")
           let profit_1 _profit effort_1 effort_2
           let profit_2 _profit effort_2 effort_1
           update_attr agent_1 effort_1 effort_2 profit_1 profit_2
+          update_effort agent_1 ; updating effort for agent 1 because agent 2 will already be updated in the outer loop
         ]
-        show profit
       ]
     ]
   ]
 end
 
 ;; updates attributes of the agent, using profits and efforts from agent and antagonist
+;; "ant" is for antagonist
 to update_attr [agent eff_ag eff_ant prof_ag prof_ant] 
   ask agent [
     set numinc (numinc + 1)
@@ -142,8 +142,44 @@ to update_attr [agent eff_ag eff_ant prof_ag prof_ant]
   ]
 end
 
-;; compute next effort to do, depending on type
+;; update next effort to do, depending on type
+to update_effort [agent]
+  ask agent [
+    let tmp new-effort effort aeffort profit aprofit cumeffort
+    set effort (max list tmp 0.0001) ; we want efforts to be above 1e-4
+  ]
+end
 
+;; "ant" is for "antagonist"
+to-report new-effort [eff_ag eff_ant prof_ag prof_ant cumeffort_part]
+  if _type = 0 [report 0.0001] ; null effort
+  if _type = 1 [report eff_ant / 2] ; shrinking effort
+  if _type = 2 [report eff_ant] ; replicator
+  if _type = 3 [report rational eff_ant] ; rational
+  if _type = 4 [report profit_comparator eff_ag prof_ag prof_ant] ; profit comparator
+  if _type = 5 [report high-effort] ; high effort
+  if _type = 6 [report rational eff_ag] ; rational
+  if _type = 7 [report winner-imitator eff_ag eff_ant prof_ag prof_ant] ; winner imitator
+  if _type = 8 [report effort_comparator eff_ag eff_ant] ; effort comparator
+  if _type = 9 [report averager eff_ag eff_ant] ; averager
+end
 
-to adaptation
+to-report rational [eff_ant]
+  report 0
+end
+
+to-report profit_comparator [eff prof_ag prof_ant]
+  ifelse prof_ag >= prof_ant [report 1.1 * eff] [report 0.9 * eff]
+end
+
+to-report effort_comparator [eff_ag eff_ant]
+  ifelse eff_ag >= eff_ant [report 1.1 * eff_ag] [report 0.9 * eff_ant]
+end
+
+to-report winner-imitator [eff_ag eff_ant prof_ag prof_ant]
+  ifelse prof_ag >= prof_ant [report eff_ag] [report eff_ant]
+end
+
+to-report averager [eff_ag eff_ant]
+  report (eff_ag + eff_ant) / 2
 end
