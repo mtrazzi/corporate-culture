@@ -1,5 +1,7 @@
 ;;;; ATTRIBUTES OF AGENTS ;;;;
 
+globals [ high-effort ]
+
 turtles-own [
   _type
   dir
@@ -22,42 +24,47 @@ turtles-own [
 ;;;; MAIN PROCEDURES ;;;;
 
 to go
-  if ticks >= 500 [ stop ]  ;; stop after 100 ticks
+  if ticks >= 500 [ stop ]  ; stop after 100 ticks
   move-agents
   game
-  tick                    ;; increase the tick counter by 1 each time through
+  tick                    ; increase the tick counter by 1 each time through
 end
 
 to setup
   clear-all
+  setup-globals
   setup-turtles
   reset-ticks
 end
 
 ;;;; INITIALISATION ;;;;
 
+to setup-globals
+  set high-effort 2.0
+end
+
 to setup-turtles
-  create-turtles number    ;; uses the value of the number slider to create turtles
+  create-turtles number    ; uses the value of the number slider to create turtles
   init-type
   init-pos
   init-efforts
   init-col
   rand-dir
   ;; cheating
-  ask turtle 0 [
-    setxy 0 0
-    set heading 0
-  ]
-  ask turtle 1 [
-    setxy 0 1
-    set heading 180
-  ]
+;  ask turtle 0 [
+;    setxy 0 0
+;    set heading 0
+;  ]
+;  ask turtle 1 [
+;    setxy 0 1
+;    set heading 180
+;  ]
 end
 
 to init-pos
   ask turtles [
     setxy (floor random-xcor) (floor random-ycor)
-    while [count turtles-here >= 2] [ ;; to make sure turtle appear in different coordinates [MAYBE WRONG FOR THE TURTLE HERE]
+    while [count turtles-here >= 2] [ ; to make sure turtle appear in different coordinates [MAYBE WRONG FOR THE TURTLE HERE]
       setxy (floor random-xcor) (floor random-ycor)
     ]
   ]
@@ -65,13 +72,14 @@ end
 
 to init-efforts
   ask turtles [
-    set effort (random-float 2.5) ;; random for all turtles (at first)
-    if _type = 0 [set effort 0.0001] ;; null effort agent
-    if (_type = 5 or _type = 7) [set effort high-effort] ;; high effort agent and winner imitator start with high effort
+    set effort (random-float 2.5) ; random for all turtles (at first)
+    if _type = 0 [set effort 0.0001] ; null effort agent
+    if (_type = 5 or _type = 7) [set effort high-effort] ; high effort agent and winner imitator start with high effort
   ]
 end
 
 to init-type
+  ask turtles [set _type random 10] ; type is random by default
   if all-agents-same-type or all-same-type-but-one [
     ask turtles [set _type majority-type]
   ]
@@ -94,7 +102,7 @@ to rand-dir ;; changes direction at random
 end
 
 to move-agents
-  ;rand-dir
+  rand-dir
   ask turtles [if not any? turtles-on patch-ahead 1 [fd 1]] ;; constraint of not having more than one agent per cell
 end
 
@@ -106,9 +114,7 @@ end
 
 to game
   ask turtles [
-    show self
-    show _type
-    show effort
+    set label floor(10000 * effort) / 10000 ; to see efforts up to the 1e-4 precision
     let agent_1 self
     let heading_1 heading
     let effort_1 effort
@@ -130,7 +136,7 @@ end
 
 ;; updates attributes of the agent, using profits and efforts from agent and antagonist
 ;; "ant" is for antagonist
-to update_attr [agent eff_ag eff_ant prof_ag prof_ant] 
+to update_attr [agent eff_ag eff_ant prof_ag prof_ant]
   ask agent [
     set numinc (numinc + 1)
     set lprofit profit
@@ -164,8 +170,18 @@ to-report new-effort [eff_ag eff_ant prof_ag prof_ant cumeffort_part]
   if _type = 9 [report averager eff_ag eff_ant] ; averager
 end
 
-to-report rational [eff_ant]
-  report 0
+to-report rational [eff]
+  ;; when we try to find the zero of the derivative of the profit (for the rational answer) we get to solve a cubic equation
+  report find-max-root-cubic 1 eff 0 (1.5625)
+end
+
+;; we use the solutions provided in "Trigonometric and hyperbolic solutions" here: https://en.wikipedia.org/wiki/Cubic_function#Trigonometric_solution_for_three_real_roots
+to-report find-max-root-cubic [a b c d] ; find maximum real root of cubic ax^3 + bx^2 + cx + d (cf. 
+  let p (3 * a * c - b ^ 2) / (3 * a ^ 2)
+  let q (2 * b ^ 3 - 9 * a * b * c + 27 * a ^ 2 * d) / (27 * a ^ 3)
+  ifelse 4 * p ^ 3 + 27 * q ^ 2 <= 0
+  [report 2 * sqrt (- p / 3) * cos ((1 / 3) * acos ((3 * q * sqrt (- 3 / p)) / (2 * p)))]
+  [report -2 / (abs (q) / q) * sqrt (- p / 3) * cosh ((1 / 3) * arcosh (-(3 * (abs q) * sqrt (- 3 / p)) / (2 * p)))]
 end
 
 to-report profit_comparator [eff prof_ag prof_ant]
@@ -182,4 +198,21 @@ end
 
 to-report averager [eff_ag eff_ant]
   report (eff_ag + eff_ant) / 2
+end
+
+;;;; MATH FUNCTIONS FOR SOLVING THE CUBIC EQUATION ;;;;
+to-report arsinh [x]
+  report ln (x + sqrt (x * x + 1))
+end
+
+to-report arcosh [x]
+  report ln (x + sqrt (x * x - 1))
+end
+
+to-report cosh [x]
+  report (e ^ x + e ^ (- x)) / 2
+end
+
+to-report sinh [x]
+  report (e ^ x - e ^ (- x)) / 2
 end
