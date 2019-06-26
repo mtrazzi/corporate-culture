@@ -1,0 +1,149 @@
+;;;; ATTRIBUTES OF AGENTS ;;;;
+
+turtles-own [
+  _type
+  dir
+  step
+  colt
+  evol
+  numinc
+  effort
+  profit
+  cumprof
+  leffort
+  cumeffort
+  lprofit
+  aeffort
+  aprofit
+  neffort
+  nprofit
+]
+
+;;;; MAIN PROCEDURES ;;;;
+
+to go
+  if ticks >= 500 [ stop ]  ;; stop after 100 ticks
+  move-agents
+  game
+  adaptation
+  tick                    ;; increase the tick counter by 1 each time through
+end
+
+to setup
+  clear-all
+  setup-turtles
+  reset-ticks
+end
+
+;;;; INITIALISATION ;;;;
+
+to setup-turtles
+  create-turtles number    ;; uses the value of the number slider to create turtles
+  init-pos
+  init-efforts
+  init-type
+  init-col
+  rand-dir
+  ;; cheating
+  ask turtle 0 [
+    setxy 0 0
+    set heading 0
+  ]
+  ask turtle 1 [
+    setxy 0 1
+    set heading 180
+  ]
+end
+
+to init-pos
+  ask turtles [
+    setxy (floor random-xcor) (floor random-ycor)
+    while [count turtles-here >= 2] [ ;; to make sure turtle appear in different coordinates [MAYBE WRONG FOR THE TURTLE HERE]
+      setxy (floor random-xcor) (floor random-ycor)
+    ]
+  ]
+end
+
+to init-efforts
+  ask turtles [
+    set effort (random-float 2.5) ;; random for all turtles (at first)
+    if _type = 0 [set effort 0.0001] ;; null effort agent
+    if _type = 5 or _type = 7 [set effort high-effort] ;; high effort agent and winner imitator start with high effort
+  ]
+end
+
+to init-type
+  if all-agents-same-type or all-same-type-but-one [
+    ask turtles [set _type majority-type]
+  ]
+  if all-same-type-but-one [
+    ask turtle 0 [set _type only-one-agent-this-type]
+  ]
+end
+
+to init-col
+  ask turtles [ set color (10 * _type + 15)  ]
+end
+
+;;;; MOVING ;;;;
+
+to rand-dir ;; changes direction at random
+  ask turtles [
+    set dir (random 4)
+    set heading dir * 90
+  ]
+end
+
+to move-agents
+  ;rand-dir
+  ask turtles [if not any? turtles-on patch-ahead 1 [fd 1]] ;; constraint of not having more than one agent per cell
+end
+
+;;;; COMPUTING EFFORTS AFTER TASK ;;;;
+
+to-report _profit [e_i e_j]
+  report 5 * sqrt(e_i + e_j) - e_i * e_i
+end
+
+to game
+  print("#####GAME####")
+  ask turtles [
+    let agent_1 self
+    let heading_1 heading
+    let effort_1 effort
+    if any? turtles-on patch-ahead 1 [
+      ask turtles-on patch-ahead 1 [
+        let heading_2 heading
+        let agent_2 self
+        let effort_2 effort
+        ;; if agents are facing each other
+        if (heading_1 != heading_2) and ((heading_1 + heading_2) mod 180 = 0) [
+          print("facing each other")
+          let profit_1 _profit effort_1 effort_2
+          let profit_2 _profit effort_2 effort_1
+          update_attr agent_1 effort_1 effort_2 profit_1 profit_2
+        ]
+        show profit
+      ]
+    ]
+  ]
+end
+
+;; updates attributes of the agent, using profits and efforts from agent and antagonist
+to update_attr [agent eff_ag eff_ant prof_ag prof_ant] 
+  ask agent [
+    set numinc (numinc + 1)
+    set lprofit profit
+    set leffort effort
+    set aeffort eff_ant
+    set aprofit prof_ant
+    set profit prof_ag
+    set cumprof (cumprof + profit)
+  ]
+end
+
+;; compute next effort to do, depending on type
+
+
+to adaptation
+end
